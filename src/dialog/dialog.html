@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Voltar ao trabalho</title>
+  <link rel="stylesheet" href="dialog.css">
+</head>
+<body>
+  <form id="form" novalidate>
+    <h1>Voltar ao trabalho · <span id="key"></span></h1>
+    <label for="text">O que você fez enquanto a tarefa estava pausada?</label>
+    <textarea id="text" rows="6" required autofocus></textarea>
+    <p id="message" role="alert" hidden></p>
+    <div class="actions">
+      <button type="button" id="cancel">Cancelar</button>
+      <button type="submit" id="confirm" disabled>Confirmar</button>
+    </div>
+  </form>
+  <script type="module" src="dialog.js"></script>
+</body>
+</html>

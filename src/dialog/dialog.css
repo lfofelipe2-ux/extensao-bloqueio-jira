@@ -1,0 +1,10 @@
+:root { color-scheme: light dark; }
+body { font: 14px system-ui, sans-serif; margin: 0; padding: 16px; }
+h1 { font-size: 16px; margin: 0 0 12px; }
+label { display: block; margin-bottom: 6px; }
+textarea { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; padding: 8px; }
+#message { margin: 8px 0 0; color: #b3261e; }
+#message a { color: inherit; }
+.actions { display: flex; justify-content: space-between; margin-top: 12px; }
+button { font: inherit; padding: 6px 16px; cursor: pointer; }
+button:disabled { cursor: not-allowed; }
