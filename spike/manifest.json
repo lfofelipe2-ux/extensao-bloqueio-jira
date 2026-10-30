@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Jira XSRF spike",
+  "version": "0.0.1",
+  "description": "Throwaway spike: POST a comment and a transition to Jira Cloud from a service worker.",
+  "action": { "default_title": "Jira XSRF spike" },
+  "background": { "service_worker": "background.js" },
+  "permissions": ["declarativeNetRequest", "declarativeNetRequestWithHostAccess"],
+  "optional_host_permissions": ["https://*/*"]
+}

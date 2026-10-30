@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Jira XSRF spike</title>
+<style>
+  body { font: 14px system-ui, sans-serif; max-width: 720px; margin: 24px auto; padding: 0 16px; }
+  label { display: block; margin: 8px 0 2px; font-weight: 600; }
+  input[type=text], input[type=email], input[type=password], select { width: 100%; box-sizing: border-box; padding: 6px; }
+  fieldset { margin: 16px 0; }
+  button { margin: 4px 4px 4px 0; padding: 6px 12px; }
+  pre { background: #f4f4f4; padding: 8px; white-space: pre-wrap; word-break: break-all; }
+</style>
+</head>
+<body>
+<h1>Jira XSRF spike</h1>
+<p>Use a test issue. Nothing is stored; the token lives only in this field.</p>
+
+<label for="url">Jira URL</label>
+<input id="url" type="text" placeholder="https://company.atlassian.net">
+<label for="email">Email</label>
+<input id="email" type="email">
+<label for="token">API token</label>
+<input id="token" type="password" autocomplete="off">
+<label for="key">Issue key</label>
+<input id="key" type="text" placeholder="TEST-1">
+<label for="tid">Target transition id</label>
+<input id="tid" type="text" placeholder="use 'Listar transições'">
+
+<fieldset>
+  <legend>Scoped token</legend>
+  <label><input id="scoped" type="checkbox"> Token com escopo (usa api.atlassian.com)</label>
+  <label for="cloudId">cloudId</label>
+  <input id="cloudId" type="text">
+  <button id="detect" type="button">Detectar cloudId</button>
+</fieldset>
+
+<fieldset>
+  <legend>Regra declarativeNetRequest</legend>
+  <label><input id="dnr" type="checkbox"> Ativar regra</label>
+  <label for="origin">Origin</label>
+  <select id="origin">
+    <option value="remove">remover</option>
+    <option value="jira">igual à origem do Jira</option>
+    <option value="keep">manter</option>
+  </select>
+  <label for="ua">User-Agent</label>
+  <select id="ua">
+    <option value="set">substituir por "jira-spike/0.1"</option>
+    <option value="remove">remover</option>
+    <option value="keep">manter</option>
+  </select>
+</fieldset>
+
+<button id="perm" type="button">1. Conceder permissão de host</button>
+<button id="test" type="button">2. Testar conexão (GET /myself)</button>
+<button id="list" type="button">3. Listar transições</button>
+<button id="comment" type="button">4. Postar comentário</button>
+<button id="transition" type="button">5. Executar transição</button>
+
+<h2>Resultado</h2>
+<pre id="out">—</pre>
+<script src="spike.js"></script>
+</body>
+</html>
