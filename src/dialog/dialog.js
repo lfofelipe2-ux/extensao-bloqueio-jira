@@ -48,7 +48,7 @@ cancelBtn.addEventListener('click', () => window.close());
 
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
-  if (busy || isBlank(textEl.value)) return;
+  if (busy || (!flow?.commentPosted && isBlank(textEl.value))) return;
   busy = true;
   messageEl.hidden = true;
   refresh();
