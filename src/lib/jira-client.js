@@ -12,19 +12,41 @@ export class JiraError extends Error {
   }
 }
 
-async function request(method, path, { query, body } = {}) {
-  const base = (await getBaseUrl()).replace(/\/+$/, '');
-  const url = new URL(base + path);
-  for (const [k, v] of Object.entries(query || {})) {
-    if (v !== undefined && v !== null) url.searchParams.set(k, v);
-  }
-  const headers = { Accept: 'application/json', ...(await getAuthHeaders()) };
-  if (body !== undefined) {
-    headers['Content-Type'] = 'application/json';
-    headers['X-Atlassian-Token'] = 'no-check';
-  }
+const XSRF_FLAG = 'xsrfWorkaround';
+const RULE_ID = 1;
+const RULE_USER_AGENT = 'extensao-bloqueio-jira/1';
 
+const dnrAvailable = () => typeof chrome !== 'undefined' && !!chrome.declarativeNetRequest?.updateSessionRules;
+
+async function readFlag() {
+  try {
+    return !!(await chrome.storage.local.get(XSRF_FLAG))[XSRF_FLAG];
+  } catch {
+    return false;
+  }
+}
+
+async function installRule(hostname) {
+  await chrome.declarativeNetRequest.updateSessionRules({
+    removeRuleIds: [RULE_ID],
+    addRules: [{
+      id: RULE_ID,
+      priority: 1,
+      action: {
+        type: 'modifyHeaders',
+        requestHeaders: [
+          { header: 'origin', operation: 'remove' },
+          { header: 'user-agent', operation: 'set', value: RULE_USER_AGENT },
+        ],
+      },
+      condition: { requestDomains: [hostname], resourceTypes: ['xmlhttprequest'], tabIds: [-1] },
+    }],
+  });
+}
+
+async function attempt(method, url, headers, body) {
   let res;
+  let text;
   try {
     res = await fetch(url, {
       method,
@@ -32,16 +54,61 @@ async function request(method, path, { query, body } = {}) {
       credentials: 'omit',
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-  } catch (e) {
-    throw new JiraError({ status: 0, kind: 'network', message: e?.message || 'Network error' });
-  }
-
-  let text;
-  try {
     text = await res.text();
   } catch (e) {
     throw new JiraError({ status: 0, kind: 'network', message: e?.message || 'Network error' });
   }
+  return { res, text };
+}
+
+async function request(method, path, { query, body } = {}) {
+  const base = (await getBaseUrl()).replace(/\/+$/, '');
+  const url = new URL(base + path);
+  for (const [k, v] of Object.entries(query || {})) {
+    if (v !== undefined && v !== null) url.searchParams.set(k, v);
+  }
+  const headers = { Accept: 'application/json', ...(await getAuthHeaders()) };
+  const isWrite = body !== undefined;
+  if (isWrite) {
+    headers['Content-Type'] = 'application/json';
+    headers['X-Atlassian-Token'] = 'no-check';
+  }
+
+  // Jira may reject extension POSTs with "XSRF check failed" because of the browser Origin/User-Agent.
+  // Once seen, a scoped DNR rule rewrites both headers; the flag keeps it on across restarts.
+  let ruleActive = false;
+  if (isWrite && dnrAvailable() && (await readFlag())) {
+    try {
+      await installRule(url.hostname);
+      ruleActive = true;
+    } catch {
+      // fall through without the rule
+    }
+  }
+
+  let { res, text } = await attempt(method, url, headers, body);
+  let xsrf = isWrite && res.status === 403 && /xsrf/i.test(text);
+
+  if (xsrf && !ruleActive && dnrAvailable()) {
+    try {
+      await installRule(url.hostname);
+      ruleActive = true;
+    } catch {
+      // keep the original failure
+    }
+    if (ruleActive) {
+      ({ res, text } = await attempt(method, url, headers, body));
+      xsrf = res.status === 403 && /xsrf/i.test(text);
+      if (res.ok) {
+        try {
+          await chrome.storage.local.set({ [XSRF_FLAG]: true });
+        } catch {
+          // best effort
+        }
+      }
+    }
+  }
+
   let data;
   let parseFailed = false;
   if (text) {
@@ -59,8 +126,8 @@ async function request(method, path, { query, body } = {}) {
     ];
     throw new JiraError({
       status: res.status,
-      kind: res.status === 401 || res.status === 403 ? 'auth' : 'other',
-      message: jiraMessages[0] || `HTTP ${res.status}`,
+      kind: !xsrf && (res.status === 401 || res.status === 403) ? 'auth' : 'other',
+      message: jiraMessages[0] || (xsrf ? 'XSRF check failed' : `HTTP ${res.status}`),
       jiraMessages,
     });
   }

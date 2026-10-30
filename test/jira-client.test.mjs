@@ -17,6 +17,8 @@ const c = await import(pathToFileURL(join(dir, 'jira-client.mjs')));
 
 let calls;
 let queue;
+let store;
+let rules;
 const json = (status, body) => ({
   ok: status >= 200 && status < 300,
   status,
@@ -26,6 +28,12 @@ const json = (status, body) => ({
 beforeEach(() => {
   calls = [];
   queue = [];
+  store = {};
+  rules = [];
+  globalThis.chrome = {
+    storage: { local: { get: async (k) => ({ [k]: store[k] }), set: async (o) => Object.assign(store, o) } },
+    declarativeNetRequest: { updateSessionRules: async (o) => rules.push(o) },
+  };
   globalThis.fetch = async (url, init) => {
     calls.push({ url: new URL(url), init });
     const next = queue.shift();
@@ -165,4 +173,53 @@ test('findTasks omits the filter clause when the board has none', async () => {
   queue.push(json(200, { columnConfig: { columns: [{ name: 'Doing', statuses: [{ id: '3' }] }] } }), json(200, { issues: [], isLast: true }));
   await c.findTasks({ boardId: 1, columnId: 'Doing', secondaryStatusId: '99' });
   assert.equal(calls[1].url.searchParams.get('jql'), 'assignee = currentUser() AND status in (3)');
+});
+
+const xsrfRes = () => ({ ok: false, status: 403, text: async () => '<html>XSRF check failed</html>' });
+
+test('XSRF 403 on POST installs the DNR rule, retries once and persists the flag', async () => {
+  queue.push(xsrfRes(), json(201, { id: '1' }));
+  await c.addComment('A-1', 'x');
+  assert.equal(calls.length, 2);
+  assert.equal(rules.length, 1);
+  const rule = rules[0].addRules[0];
+  assert.deepEqual(rule.condition, { requestDomains: ['x.atlassian.net'], resourceTypes: ['xmlhttprequest'], tabIds: [-1] });
+  assert.deepEqual(rule.action.requestHeaders.map((h) => h.header), ['origin', 'user-agent']);
+  assert.equal(store.xsrfWorkaround, true);
+});
+
+test('with the flag set the rule is installed before the first POST', async () => {
+  store.xsrfWorkaround = true;
+  queue.push(json(201, {}));
+  await c.addComment('A-1', 'x');
+  assert.equal(rules.length, 1);
+  assert.equal(calls.length, 1);
+});
+
+test('GETs never install the rule', async () => {
+  store.xsrfWorkaround = true;
+  queue.push(json(200, {}));
+  await c.getMyself();
+  assert.equal(rules.length, 0);
+});
+
+test('XSRF failing after the retry is reported as other, not auth, with no loop', async () => {
+  queue.push(xsrfRes(), xsrfRes());
+  await assert.rejects(c.addComment('A-1', 'x'), (e) => e.kind === 'other' && e.status === 403 && /XSRF/.test(e.message));
+  assert.equal(calls.length, 2);
+  assert.equal(store.xsrfWorkaround, undefined);
+});
+
+test('plain 403 on POST is not retried', async () => {
+  queue.push(json(403, { errorMessages: ['no permission'] }));
+  await assert.rejects(c.addComment('A-1', 'x'), (e) => e.kind === 'auth');
+  assert.equal(calls.length, 1);
+  assert.equal(rules.length, 0);
+});
+
+test('without declarativeNetRequest the XSRF error surfaces without a retry', async () => {
+  delete globalThis.chrome.declarativeNetRequest;
+  queue.push(xsrfRes());
+  await assert.rejects(c.addComment('A-1', 'x'), (e) => e.kind === 'other');
+  assert.equal(calls.length, 1);
 });

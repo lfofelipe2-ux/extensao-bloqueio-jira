@@ -44,6 +44,16 @@ A 200 response with a non-JSON body (wrong URL, login page) throws `other`; a fa
 
 `credentials: 'omit'`, `Accept: application/json`, and for POSTs `Content-Type: application/json` and `X-Atlassian-Token: no-check`. Auth headers come from `auth.js`.
 
+## XSRF self-healing
+
+Jira may answer a POST from the extension with `403 XSRF check failed` because of the browser `Origin` (`chrome-extension://<id>`) and `User-Agent` (see `spike/README.md`, PR #5: a `declarativeNetRequest` session rule rewrites both).
+
+- On a POST that gets 403 with `xsrf` in the body, the client installs a session rule (id 1, `modifyHeaders`: remove `origin`, set `user-agent`; condition `requestDomains` = request host, `resourceTypes: ['xmlhttprequest']`, `tabIds: [-1]`) and retries once. The host is the configured Jira host or `api.atlassian.com` for scoped tokens, since the rule uses the request URL.
+- If the retry succeeds, `chrome.storage.local.xsrfWorkaround = true` is stored. Later POSTs install the rule before the request (session rules do not survive a browser restart). GETs never use it.
+- An XSRF 403 that persists is reported as `kind: 'other'`, never `auth`, so the UI does not blame credentials. No further retries.
+- Without `chrome.declarativeNetRequest` (permission missing) the original error is thrown without a retry.
+- Requires the manifest permission `declarativeNetRequestWithHostAccess` (host access comes from the optional host permission granted for the Jira origin).
+
 ## Tests
 
 `test/jira-client.test.mjs` (`node --test test/jira-client.test.mjs`) mocks `globalThis.fetch` and uses a temporary auth stub; nothing is shipped.
