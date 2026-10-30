@@ -12,6 +12,7 @@ document.getElementById('key').textContent = key;
 
 let flow;
 let busy = false;
+let done = false;
 
 function refresh() {
   confirmBtn.disabled = busy || (!flow?.commentPosted && isBlank(textEl.value));
@@ -54,11 +55,18 @@ form.addEventListener('submit', async (event) => {
   try {
     const result = await (await getFlow()).submit(key, textEl.value);
     if (result.ok) {
-      await chrome.runtime.sendMessage({ type: 'dialog-done' });
+      done = true;
+      try {
+        await chrome.runtime.sendMessage({ type: 'dialog-done' });
+      } catch {
+        // service worker may be asleep without a listener; the job is done either way
+      }
       window.close();
       return;
     }
-    if (result.step === 'transition') {
+    if (result.kind === 'config') {
+      showMessage(result.message, { auth: true });
+    } else if (result.step === 'transition') {
       showMessage(`O comentário já foi publicado, mas a mudança de status falhou: ${result.message}`, { auth: result.kind === 'auth' });
       confirmBtn.textContent = 'Tentar novamente';
     } else {
@@ -67,8 +75,10 @@ form.addEventListener('submit', async (event) => {
   } catch {
     showMessage('Erro inesperado.');
   } finally {
-    busy = false;
-    refresh();
+    if (!done) {
+      busy = false;
+      refresh();
+    }
   }
 });
 

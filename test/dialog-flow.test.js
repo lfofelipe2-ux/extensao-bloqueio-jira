@@ -78,3 +78,58 @@ test('auth error maps to fixed message', async () => {
   assert.equal(result.kind, 'auth');
   assert.equal(result.message, AUTH_MESSAGE);
 });
+
+test('comment failure then retry posts comment again and transitions', async () => {
+  const client = makeClient({ commentError: { kind: 'network', message: 'down' } });
+  const flow = createReturnFlow({ client, primaryStatusId: '10' });
+  await flow.submit('A-1', 'text');
+  client.addComment = async (key, text) => {
+    client.calls.push(['comment', key, text]);
+  };
+  const result = await flow.submit('A-1', 'text');
+  assert.deepEqual(result, { ok: true });
+  assert.deepEqual(client.calls.map((c) => c[0]), ['comment', 'comment', 'transition']);
+});
+
+test('auth error at transition step', async () => {
+  const client = makeClient({ transitionError: { kind: 'auth', message: 'x' } });
+  const flow = createReturnFlow({ client, primaryStatusId: '10' });
+  const result = await flow.submit('A-1', 'text');
+  assert.equal(result.step, 'transition');
+  assert.equal(result.message, AUTH_MESSAGE);
+});
+
+test('non-Jira errors fall back to other/unknown', async () => {
+  const client = makeClient({ commentError: null });
+  client.addComment = async () => {
+    throw null;
+  };
+  const flow = createReturnFlow({ client, primaryStatusId: '10' });
+  const result = await flow.submit('A-1', 'text');
+  assert.equal(result.kind, 'other');
+  assert.equal(result.message, 'Erro desconhecido');
+});
+
+test('missing primary status or key calls nothing', async () => {
+  const client = makeClient();
+  const noStatus = await createReturnFlow({ client, primaryStatusId: undefined }).submit('A-1', 'text');
+  const noKey = await createReturnFlow({ client, primaryStatusId: '10' }).submit('', 'text');
+  assert.equal(noStatus.kind, 'config');
+  assert.equal(noKey.kind, 'config');
+  assert.deepEqual(client.calls, []);
+});
+
+test('comment text is trimmed', async () => {
+  const client = makeClient();
+  await createReturnFlow({ client, primaryStatusId: '10' }).submit('A-1', '  hi \n');
+  assert.deepEqual(client.calls[0], ['comment', 'A-1', 'hi']);
+});
+
+test('concurrent submit does not post twice', async () => {
+  const client = makeClient();
+  const flow = createReturnFlow({ client, primaryStatusId: '10' });
+  const [a, b] = await Promise.all([flow.submit('A-1', 'x'), flow.submit('A-1', 'x')]);
+  assert.equal(a.ok, true);
+  assert.equal(b.ok, false);
+  assert.equal(client.calls.filter((c) => c[0] === 'comment').length, 1);
+});

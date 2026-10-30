@@ -12,6 +12,7 @@ function toFailure(error, step) {
 
 export function createReturnFlow({ client, primaryStatusId }) {
   let commentPosted = false;
+  let inFlight = false;
 
   return {
     get commentPosted() {
@@ -19,25 +20,36 @@ export function createReturnFlow({ client, primaryStatusId }) {
     },
 
     async submit(key, text) {
+      if (inFlight) {
+        return { ok: false, step: 'validation', kind: 'other', message: 'Envio em andamento.' };
+      }
+      if (!key || !primaryStatusId) {
+        return { ok: false, step: 'validation', kind: 'config', message: 'Status primário não configurado.' };
+      }
       if (!commentPosted && isBlank(text)) {
         return { ok: false, step: 'validation', kind: 'other', message: 'Descreva o que você fez.' };
       }
 
-      if (!commentPosted) {
-        try {
-          await client.addComment(key, text);
-        } catch (error) {
-          return toFailure(error, 'comment');
-        }
-        commentPosted = true;
-      }
-
+      inFlight = true;
       try {
-        await client.transitionTo(key, primaryStatusId);
-      } catch (error) {
-        return toFailure(error, 'transition');
+        if (!commentPosted) {
+          try {
+            await client.addComment(key, text.trim());
+          } catch (error) {
+            return toFailure(error, 'comment');
+          }
+          commentPosted = true;
+        }
+
+        try {
+          await client.transitionTo(key, primaryStatusId);
+        } catch (error) {
+          return toFailure(error, 'transition');
+        }
+        return { ok: true };
+      } finally {
+        inFlight = false;
       }
-      return { ok: true };
     },
   };
 }
