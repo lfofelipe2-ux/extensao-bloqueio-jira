@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "Mostra e alterna o status da tarefa atual do Jira pelo ícone da barra de ferramentas.",
   "minimum_chrome_version": "116",
-  "permissions": ["storage", "alarms"],
+  "permissions": ["storage", "alarms", "declarativeNetRequestWithHostAccess"],
   "optional_host_permissions": ["https://*/*"],
   "background": {
     "service_worker": "src/background/service-worker.js",

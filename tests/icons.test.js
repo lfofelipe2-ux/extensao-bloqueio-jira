@@ -15,7 +15,7 @@ test("all 12 icons are PNGs of the right size", () => {
 
 test("manifest has contract permissions and existing files", () => {
   const m = JSON.parse(readFileSync(new URL("../manifest.json", import.meta.url), "utf8"));
-  assert.deepEqual(m.permissions, ["storage", "alarms"]);
+  assert.deepEqual(m.permissions, ["storage", "alarms", "declarativeNetRequestWithHostAccess"]);
   assert.deepEqual(m.optional_host_permissions, ["https://*/*"]);
   assert.equal(m.manifest_version, 3);
   for (const p of [...Object.values(m.icons), ...Object.values(m.action.default_icon), m.background.service_worker]) {
