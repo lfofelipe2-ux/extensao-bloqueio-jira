@@ -53,7 +53,7 @@ test('single task maps status to state', () => {
   const p = computeRuntime({ settings, issues: [issue('10', 'Em andamento')] });
   assert.equal(p.state, 'primary');
   assert.equal(p.tooltip, 'ABC-1 – Fix it – Em andamento');
-  assert.equal(computeRuntime({ settings, issues: [issue(20)] }).state, 'secondary');
+  assert.equal(computeRuntime({ settings, issues: [issue('20')] }).state, 'secondary');
   const o = computeRuntime({ settings, issues: [issue('99')] });
   assert.equal(o.state, 'unknown');
   assert.equal(o.reason, 'other-status');
@@ -80,6 +80,13 @@ test('network error without previous is grey', () => {
   assert.equal(computeRuntime({ settings, error: { kind: 'network' } }).state, 'unknown');
 });
 
+test('network error does not carry over unconfigured or auth state', () => {
+  const previous = computeRuntime({ settings, error: { kind: 'auth' } });
+  const r = computeRuntime({ settings, error: { kind: 'network' }, previous });
+  assert.equal(r.reason, 'error');
+  assert.equal(r.offline, true);
+});
+
 test('other error is grey with message', () => {
   const r = computeRuntime({ settings, error: { kind: 'other', message: 'boom' } });
   assert.equal(r.reason, 'error');
@@ -92,5 +99,5 @@ test('decideClick', () => {
   assert.equal(decideClick({ state: 'unknown', reason: 'unconfigured' }), 'open-options');
   assert.equal(decideClick({ state: 'unknown', reason: 'auth' }), 'open-options');
   assert.equal(decideClick({ state: 'unknown', reason: 'none' }), 'refresh');
-  assert.equal(decideClick(null), 'open-options');
+  assert.equal(decideClick(null), 'refresh');
 });

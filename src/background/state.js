@@ -52,7 +52,8 @@ export function computeRuntime({ settings, issues, error, previous }) {
   if (error) {
     if (error.kind === 'auth') return grey('auth', 'Credenciais inválidas ou expiradas');
     if (error.kind === 'network') {
-      const base = previous || grey('error', 'Jira');
+      const usable = previous && previous.reason !== 'unconfigured' && previous.reason !== 'auth';
+      const base = usable ? previous : grey('error', 'Jira');
       const tooltip = (base.tooltip || '').replace(/ \(offline\)$/, '') + ' (offline)';
       return { ...base, tooltip, offline: true };
     }
@@ -91,7 +92,7 @@ export function decideClick(runtime) {
     case 'secondary':
       return 'open-dialog';
     default:
-      return runtime?.reason === 'unconfigured' || runtime?.reason === 'auth' || !runtime
+      return runtime?.reason === 'unconfigured' || runtime?.reason === 'auth'
         ? 'open-options'
         : 'refresh';
   }

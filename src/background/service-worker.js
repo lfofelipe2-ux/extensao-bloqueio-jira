@@ -26,7 +26,7 @@ async function scheduleAlarm() {
   await chrome.alarms.create(ALARM, { periodInMinutes: pollPeriodMinutes(settings.pollSeconds) });
 }
 
-async function refresh() {
+async function refreshNow() {
   const settings = await getSettings();
   const previous = await getRuntime();
   let issues = null;
@@ -35,11 +35,21 @@ async function refresh() {
     try {
       issues = await findTasks(settings);
     } catch (e) {
-      error = { kind: e.kind || 'other', message: e.message };
+      error = { kind: e.kind || (e instanceof TypeError ? 'network' : 'other'), message: e.message };
     }
   }
   await applyRuntime(computeRuntime({ settings, issues, error, previous }));
 }
+
+let queue = Promise.resolve();
+
+// Serializes handlers so a stale poll cannot overwrite a newer result and clicks cannot race.
+function enqueue(task) {
+  queue = queue.then(task).catch((e) => showError(e?.message || 'Erro inesperado'));
+  return queue;
+}
+
+const refresh = () => enqueue(refreshNow);
 
 async function showError(message) {
   await chrome.action.setBadgeBackgroundColor({ color: '#d93025' });
@@ -55,7 +65,7 @@ async function transitionToSecondary(runtime) {
   } catch (e) {
     failure = e.message || 'Falha ao mudar o status';
   }
-  await refresh();
+  await refreshNow();
   if (failure) await showError(failure);
 }
 
@@ -78,6 +88,7 @@ async function openDialog(runtime) {
 }
 
 async function onClick() {
+  await refreshNow();
   const runtime = await getRuntime();
   switch (decideClick(runtime)) {
     case 'transition-secondary':
@@ -87,21 +98,23 @@ async function onClick() {
     case 'open-options':
       return chrome.runtime.openOptionsPage();
     default:
-      return refresh();
+      return;
   }
 }
 
 async function start() {
   await scheduleAlarm();
-  await refresh();
+  await refreshNow();
 }
 
-chrome.runtime.onInstalled.addListener(start);
-chrome.runtime.onStartup.addListener(start);
+const startQueued = () => enqueue(start);
+
+chrome.runtime.onInstalled.addListener(startQueued);
+chrome.runtime.onStartup.addListener(startQueued);
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === ALARM) refresh();
 });
-chrome.action.onClicked.addListener(onClick);
+chrome.action.onClicked.addListener(() => enqueue(onClick));
 chrome.windows.onRemoved.addListener(async (windowId) => {
   const stored = await chrome.storage.local.get(DIALOG_WINDOW_KEY);
   if (stored[DIALOG_WINDOW_KEY] === windowId) {
@@ -109,6 +122,6 @@ chrome.windows.onRemoved.addListener(async (windowId) => {
   }
 });
 chrome.runtime.onMessage.addListener((message) => {
-  if (message?.type === 'settings-changed') start();
+  if (message?.type === 'settings-changed') startQueued();
   else if (message?.type === 'dialog-done') refresh();
 });
