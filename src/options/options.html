@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Configurações</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main>
+    <h1>Configurações</h1>
+    <form id="form" novalidate>
+      <fieldset>
+        <legend>Conexão</legend>
+        <label>URL do Jira
+          <input id="jiraUrl" type="url" placeholder="https://empresa.atlassian.net" autocomplete="off">
+        </label>
+        <label>E-mail
+          <input id="email" type="email" autocomplete="off">
+        </label>
+        <label>Token da API
+          <input id="apiToken" type="password" autocomplete="new-password">
+        </label>
+        <p class="notice">O token fica salvo sem criptografia em <code>chrome.storage.local</code> neste navegador.</p>
+        <label class="inline"><input id="scopedToken" type="checkbox"> Token com escopo</label>
+        <label id="cloudIdRow" hidden>Cloud ID
+          <input id="cloudId" type="text" autocomplete="off">
+        </label>
+        <div class="row">
+          <button type="button" id="test">Testar conexão</button>
+          <span id="testResult" role="status"></span>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Tarefa</legend>
+        <label>Board <select id="boardId" disabled></select></label>
+        <label>Coluna <select id="columnId" disabled></select></label>
+        <label>Status primário <select id="primaryStatusId" disabled></select></label>
+        <label>Status secundário <select id="secondaryStatusId" disabled></select></label>
+        <p id="boardWarning" class="warning" hidden></p>
+        <label>Intervalo de atualização (segundos)
+          <input id="pollSeconds" type="number" min="30" step="1" value="60">
+        </label>
+      </fieldset>
+
+      <p id="formError" class="error" role="alert" hidden></p>
+      <p id="saved" class="ok" role="status" hidden>Configurações salvas.</p>
+
+      <div class="actions">
+        <button type="button" id="cancel">Cancelar</button>
+        <button type="submit" id="save" class="primary">Salvar</button>
+      </div>
+    </form>
+  </main>
+  <script type="module" src="options.js"></script>
+</body>
+</html>
