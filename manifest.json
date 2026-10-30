@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Jira Status Toggle",
+  "version": "0.1.0",
+  "description": "Mostra e alterna o status da tarefa atual do Jira pelo ícone da barra de ferramentas.",
+  "minimum_chrome_version": "116",
+  "permissions": ["storage", "alarms", "declarativeNetRequestWithHostAccess"],
+  "optional_host_permissions": ["https://*/*"],
+  "background": {
+    "service_worker": "src/background/service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Jira Status Toggle",
+    "default_icon": {
+      "16": "icons/grey-16.png",
+      "32": "icons/grey-32.png",
+      "48": "icons/grey-48.png",
+      "128": "icons/grey-128.png"
+    }
+  },
+  "options_ui": {
+    "page": "src/options/options.html",
+    "open_in_tab": true
+  },
+  "icons": {
+    "16": "icons/grey-16.png",
+    "32": "icons/grey-32.png",
+    "48": "icons/grey-48.png",
+    "128": "icons/grey-128.png"
+  }
+}
