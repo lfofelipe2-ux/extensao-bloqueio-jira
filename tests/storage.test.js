@@ -46,3 +46,16 @@ test("isConfigured requires all fields and distinct statuses", () => {
   assert.equal(isConfigured({ ...ok, scopedToken: true }), false);
   assert.equal(isConfigured({ ...ok, scopedToken: true, cloudId: "c" }), true);
 });
+
+test("undefined and null patch values do not clobber stored values", async () => {
+  await setSettings({ email: "a@b.c" });
+  const saved = await setSettings({ email: undefined, jiraUrl: null });
+  assert.equal(saved.email, "a@b.c");
+  assert.equal(saved.jiraUrl, "");
+});
+
+test("null or empty pollSeconds falls back to 60", async () => {
+  assert.equal((await setSettings({ pollSeconds: "" })).pollSeconds, 60);
+  data.settings.pollSeconds = 1;
+  assert.equal((await getSettings()).pollSeconds, 30);
+});

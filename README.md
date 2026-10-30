@@ -22,7 +22,7 @@ The API token is stored **unencrypted** in `chrome.storage.local`, on this machi
 
 ## Development
 
-- `npm test` runs the unit tests (Node 20+, no dependencies).
+- `npm test` runs the unit tests (Node 22+, no dependencies).
 - `npm run icons` regenerates `icons/*.png` from `tools/generate-icons.mjs`.
 - Specs live in `docs/specs/`.
 

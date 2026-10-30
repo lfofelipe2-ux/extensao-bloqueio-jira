@@ -35,3 +35,8 @@ test("missing credentials throw without leaking the token", async () => {
   await setSettings({ apiToken: "secret-token" });
   await assert.rejects(getAuthHeaders(), (e) => !e.message.includes("secret-token"));
 });
+
+test("missing email throws a descriptive error", async () => {
+  await setSettings({ apiToken: "t" });
+  await assert.rejects(getAuthHeaders(), /e-mail/i);
+});

@@ -24,14 +24,19 @@ export const DEFAULT_RUNTIME = Object.freeze({
 });
 
 function normalizePoll(value) {
+  if (value === null || value === "" || typeof value === "boolean") return DEFAULT_POLL_SECONDS;
   const n = Number(value);
   if (!Number.isFinite(n)) return DEFAULT_POLL_SECONDS;
   return Math.max(MIN_POLL_SECONDS, Math.round(n));
 }
 
+function defined(obj) {
+  return Object.fromEntries(Object.entries(obj ?? {}).filter(([, v]) => v !== undefined && v !== null));
+}
+
 async function read(key, defaults) {
   const stored = await chrome.storage.local.get(key);
-  return { ...defaults, ...(stored[key] ?? {}) };
+  return { ...defaults, ...defined(stored[key]) };
 }
 
 export async function getSettings() {
@@ -41,7 +46,7 @@ export async function getSettings() {
 }
 
 export async function setSettings(patch) {
-  const next = { ...(await getSettings()), ...patch };
+  const next = { ...(await getSettings()), ...defined(patch) };
   next.pollSeconds = normalizePoll(next.pollSeconds);
   await chrome.storage.local.set({ settings: next });
   return next;
@@ -52,7 +57,7 @@ export async function getRuntime() {
 }
 
 export async function setRuntime(patch) {
-  const next = { ...(await getRuntime()), ...patch };
+  const next = { ...(await getRuntime()), ...defined(patch) };
   await chrome.storage.local.set({ runtime: next });
   return next;
 }
