@@ -39,7 +39,12 @@ async function installRule(hostname) {
           { header: 'user-agent', operation: 'set', value: RULE_USER_AGENT },
         ],
       },
-      condition: { requestDomains: [hostname], resourceTypes: ['xmlhttprequest'], tabIds: [-1] },
+      condition: {
+        requestDomains: [hostname],
+        requestMethods: ['post', 'put', 'delete'],
+        resourceTypes: ['xmlhttprequest'],
+        tabIds: [-1],
+      },
     }],
   });
 }
@@ -99,7 +104,7 @@ async function request(method, path, { query, body } = {}) {
     if (ruleActive) {
       ({ res, text } = await attempt(method, url, headers, body));
       xsrf = res.status === 403 && /xsrf/i.test(text);
-      if (res.ok) {
+      if (!xsrf) {
         try {
           await chrome.storage.local.set({ [XSRF_FLAG]: true });
         } catch {

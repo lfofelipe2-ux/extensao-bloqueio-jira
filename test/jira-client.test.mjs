@@ -183,7 +183,7 @@ test('XSRF 403 on POST installs the DNR rule, retries once and persists the flag
   assert.equal(calls.length, 2);
   assert.equal(rules.length, 1);
   const rule = rules[0].addRules[0];
-  assert.deepEqual(rule.condition, { requestDomains: ['x.atlassian.net'], resourceTypes: ['xmlhttprequest'], tabIds: [-1] });
+  assert.deepEqual(rule.condition, { requestDomains: ['x.atlassian.net'], requestMethods: ['post', 'put', 'delete'], resourceTypes: ['xmlhttprequest'], tabIds: [-1] });
   assert.deepEqual(rule.action.requestHeaders.map((h) => h.header), ['origin', 'user-agent']);
   assert.equal(store.xsrfWorkaround, true);
 });
@@ -222,4 +222,10 @@ test('without declarativeNetRequest the XSRF error surfaces without a retry', as
   queue.push(xsrfRes());
   await assert.rejects(c.addComment('A-1', 'x'), (e) => e.kind === 'other');
   assert.equal(calls.length, 1);
+});
+
+test('flag is persisted once the retry is no longer an XSRF failure, even if Jira then rejects it', async () => {
+  queue.push(xsrfRes(), json(400, { errorMessages: ['bad'] }));
+  await assert.rejects(c.addComment('A-1', 'x'), (e) => e.kind === 'other' && e.status === 400);
+  assert.equal(store.xsrfWorkaround, true);
 });
