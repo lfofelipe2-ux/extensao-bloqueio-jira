@@ -3,13 +3,14 @@ import { readdirSync, readFileSync, statSync, mkdirSync, writeFileSync } from 'n
 import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+const DOS_DATE = 0x0021;
 const root = fileURLToPath(new URL('..', import.meta.url));
 const outDir = join(root, 'dist');
 const version = JSON.parse(readFileSync(join(root, 'manifest.json'), 'utf8')).version;
 const outFile = join(outDir, `jira-status-toggle-${version}.zip`);
 
 function walk(dir) {
-  return readdirSync(dir).flatMap((name) => {
+  return readdirSync(dir).sort().flatMap((name) => {
     const p = join(dir, name);
     return statSync(p).isDirectory() ? walk(p) : [p];
   });
@@ -35,6 +36,7 @@ for (const name of files) {
   local.writeUInt16LE(20, 4);
   local.writeUInt16LE(0x0800, 6);
   local.writeUInt16LE(8, 8);
+  local.writeUInt16LE(DOS_DATE, 12);
   local.writeUInt32LE(crc, 14);
   local.writeUInt32LE(comp.length, 18);
   local.writeUInt32LE(data.length, 22);
@@ -47,6 +49,7 @@ for (const name of files) {
   central.writeUInt16LE(20, 6);
   central.writeUInt16LE(0x0800, 8);
   central.writeUInt16LE(8, 10);
+  central.writeUInt16LE(DOS_DATE, 14);
   central.writeUInt32LE(crc, 16);
   central.writeUInt32LE(comp.length, 20);
   central.writeUInt32LE(data.length, 24);
