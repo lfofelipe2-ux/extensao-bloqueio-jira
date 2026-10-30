@@ -4,10 +4,11 @@ import { getMyself, listBoards, getBoardConfig } from '../lib/jira-client.js';
 const MIN_POLL = 30;
 const ids = ['jiraUrl', 'email', 'apiToken', 'scopedToken', 'cloudId', 'boardId', 'columnId',
   'primaryStatusId', 'secondaryStatusId', 'pollSeconds', 'test', 'testResult', 'cloudIdRow',
-  'boardWarning', 'formError', 'saved', 'form', 'cancel'];
+  'boardWarning', 'formError', 'saved', 'form', 'cancel', 'save'];
 const $ = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
 
 let boardConfig = null;
+let loadSeq = 0;
 
 function show(el, text) {
   el.textContent = text ?? '';
@@ -25,9 +26,9 @@ function errorText(e) {
   return e?.message || 'Erro desconhecido';
 }
 
-function origins() {
-  const list = [`${new URL($.jiraUrl.value.trim()).origin}/*`];
-  if ($.scopedToken.checked) list.push('https://api.atlassian.com/*');
+function origins(c) {
+  const list = [`${new URL(c.jiraUrl).origin}/*`];
+  if (c.scopedToken) list.push('https://api.atlassian.com/*');
   return list;
 }
 
@@ -42,25 +43,32 @@ function readCredentials() {
 }
 
 function credentialsError(c) {
-  if (!/^https:\/\/[^/\s]+/.test(c.jiraUrl)) return 'Informe a URL do Jira começando com https://';
+  try {
+    if (new URL(c.jiraUrl).protocol !== 'https:') throw new Error();
+  } catch {
+    return 'Informe uma URL válida do Jira começando com https://';
+  }
   if (!c.email) return 'Informe o e-mail.';
   if (!c.apiToken) return 'Informe o token da API.';
   if (c.scopedToken && !c.cloudId) return 'Informe o Cloud ID para token com escopo.';
   return null;
 }
 
-async function ensurePermission() {
-  const granted = await chrome.permissions.request({ origins: origins() });
+async function ensurePermission(c) {
+  if (await chrome.permissions.contains({ origins: origins(c) })) return;
+  const granted = await chrome.permissions.request({ origins: origins(c) });
   if (!granted) throw new Error('Permissão de acesso ao Jira negada.');
 }
 
 function statusEntries() {
   if (!boardConfig) return [];
+  const seen = new Set();
   return boardConfig.columns.flatMap((col) =>
-    (col.statuses || []).map((s) => [s.id, `${s.name} (${col.name})`]));
+    (col.statuses || []).filter((s) => !seen.has(String(s.id)) && seen.add(String(s.id)))
+      .map((s) => [s.id, `${s.name} (${col.name})`]));
 }
 
-function renderBoardFields(saved) {
+function renderBoardFields(saved, warn = false) {
   const columns = boardConfig ? boardConfig.columns : [];
   fillSelect($.columnId, columns.map((c, i) => [c.id ?? c.name ?? i, c.name]), saved.columnId, 'Selecione a coluna');
   const statuses = statusEntries();
@@ -68,26 +76,41 @@ function renderBoardFields(saved) {
   fillSelect($.secondaryStatusId, statuses, saved.secondaryStatusId, 'Selecione o status secundário');
   const known = new Set(statuses.map(([id]) => String(id)));
   const missing = [saved.primaryStatusId, saved.secondaryStatusId].filter((id) => id && !known.has(String(id)));
-  show($.boardWarning, boardConfig && missing.length
+  show($.boardWarning, warn && boardConfig && missing.length
     ? 'Um status salvo não pertence a este board. Escolha novamente.' : '');
 }
 
-async function loadBoardConfig(boardId, saved) {
+async function loadBoardConfig(boardId, saved, warn = false) {
+  const seq = ++loadSeq;
   boardConfig = null;
+  renderBoardFields({});
   if (boardId) {
     try {
-      boardConfig = await getBoardConfig(boardId);
+      const config = await getBoardConfig(boardId);
+      if (seq !== loadSeq) return;
+      boardConfig = config;
     } catch (e) {
+      if (seq !== loadSeq) return;
       show($.formError, `Falha ao carregar o board: ${errorText(e)}`);
     }
   }
-  renderBoardFields(saved);
+  renderBoardFields(saved, warn);
 }
 
-async function loadBoards(saved) {
+async function loadBoards(saved, warn = false) {
+  const seq = ++loadSeq;
   const boards = await listBoards();
-  fillSelect($.boardId, boards.map((b) => [b.id, b.name]), saved.boardId, 'Selecione o board');
-  await loadBoardConfig($.boardId.value, saved);
+  if (seq !== loadSeq) return;
+  fillSelect($.boardId, boards.map((b) => [b.id, b.name]), saved.boardId,
+    boards.length ? 'Selecione o board' : 'Nenhum board encontrado');
+  await loadBoardConfig($.boardId.value, saved, warn);
+}
+
+function resetBoardData() {
+  loadSeq++;
+  boardConfig = null;
+  fillSelect($.boardId, [], null, 'Teste a conexão primeiro');
+  renderBoardFields({});
 }
 
 function draft() {
@@ -110,12 +133,12 @@ async function populate() {
   show($.testResult, '');
   show($.formError, '');
   show($.saved, '');
-  fillSelect($.boardId, [], null, 'Teste a conexão primeiro');
-  renderBoardFields({});
+  resetBoardData();
   if (s.jiraUrl && s.email && s.apiToken && s.boardId) {
     try {
-      await loadBoards(s);
+      await loadBoards(s, true);
     } catch (e) {
+      resetBoardData();
       show($.formError, `Não foi possível carregar os boards: ${errorText(e)}`);
     }
   }
@@ -127,19 +150,27 @@ async function onTest() {
   const c = readCredentials();
   const problem = credentialsError(c);
   if (problem) return setResult(problem, false);
+  const keep = { boardId: $.boardId.value, ...draft() };
+  resetBoardData();
   $.test.disabled = true;
   setResult('Testando...', null);
   try {
-    await ensurePermission();
+    await ensurePermission(c);
     await setSettings(c);
     const me = await getMyself();
     setResult(`Conectado como ${me.displayName}`, true);
-    await loadBoards({ boardId: $.boardId.value, ...draft() });
   } catch (e) {
     setResult(errorText(e), false);
-  } finally {
     $.test.disabled = false;
+    return;
   }
+  try {
+    await loadBoards(keep);
+  } catch (e) {
+    resetBoardData();
+    show($.formError, `Conectado, mas falhou ao listar os boards: ${errorText(e)}`);
+  }
+  $.test.disabled = false;
 }
 
 function setResult(text, ok) {
@@ -154,9 +185,8 @@ function validate(values) {
   if (!values.columnId) return 'Selecione a coluna.';
   if (!values.primaryStatusId || !values.secondaryStatusId) return 'Selecione os status primário e secundário.';
   if (values.primaryStatusId === values.secondaryStatusId) return 'Os status primário e secundário devem ser diferentes.';
-  if (!Number.isInteger(values.pollSeconds) || values.pollSeconds < MIN_POLL) {
-    return `O intervalo mínimo é de ${MIN_POLL} segundos.`;
-  }
+  if (!Number.isInteger(values.pollSeconds)) return 'Informe o intervalo como número inteiro de segundos.';
+  if (values.pollSeconds < MIN_POLL) return `O intervalo mínimo é de ${MIN_POLL} segundos.`;
   return null;
 }
 
@@ -174,18 +204,25 @@ async function onSave(event) {
   const problem = validate(values);
   if (problem) return show($.formError, problem);
   show($.formError, '');
+  $.save.disabled = true;
   try {
-    await ensurePermission();
+    await ensurePermission(values);
     await setSettings(values);
     await chrome.runtime.sendMessage({ type: 'settings-changed' }).catch(() => {});
     show($.saved, 'Configurações salvas.');
   } catch (e) {
     show($.formError, `Falha ao salvar: ${errorText(e)}`);
+  } finally {
+    $.save.disabled = false;
   }
 }
 
 $.scopedToken.addEventListener('change', () => { $.cloudIdRow.hidden = !$.scopedToken.checked; });
-$.boardId.addEventListener('change', () => loadBoardConfig($.boardId.value, draft()));
+$.boardId.addEventListener('change', () => { show($.formError, ''); loadBoardConfig($.boardId.value, {}); });
+for (const id of ['jiraUrl', 'email', 'apiToken', 'cloudId']) {
+  $[id].addEventListener('input', () => { resetBoardData(); setResult('', null); });
+}
+$.scopedToken.addEventListener('change', () => { resetBoardData(); setResult('', null); });
 $.test.addEventListener('click', onTest);
 $.cancel.addEventListener('click', populate);
 $.form.addEventListener('submit', onSave);

@@ -14,7 +14,7 @@ Consumed (built by other slices):
 ## Behaviour
 
 1. Load saved settings into the form on open.
-2. "Testar conexão": validates URL/email/token, requests host permission (`<origin>/*`, plus `https://api.atlassian.com/*` when "Token com escopo" is checked), persists the credential fields, calls `getMyself()` and shows the display name or the error. On success the Board list is loaded with `listBoards()`.
+2. "Testar conexão": validates URL/email/token, requests host permission (skipped when already granted) (`<origin>/*`, plus `https://api.atlassian.com/*` when "Token com escopo" is checked), persists the credential fields, calls `getMyself()` and shows the display name or the error. On success the Board list is loaded with `listBoards()`.
 3. Board change loads `getBoardConfig(boardId)`; Column list is filled from its columns. Status lists (Primary/Secondary) offer every status of every column of the board, labelled with the column name.
 4. Column change does not reset statuses (the secondary status may sit in another column).
 5. Validation on Salvar: URL is https, email and token filled, cloudId required when scoped, board/column/both statuses chosen, primary != secondary, `pollSeconds` integer >= 30.
