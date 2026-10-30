@@ -12,7 +12,9 @@ const { version } = manifest;
 const outFile = join(outDir, `jira-status-toggle${edge ? '-edge' : ''}-${version}.zip`);
 
 if (edge) delete manifest.minimum_chrome_version;
-const manifestData = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`);
+const manifestData = edge
+  ? Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`)
+  : readFileSync(join(root, 'manifest.json'));
 
 function walk(dir) {
   return readdirSync(dir).sort().flatMap((name) => {
