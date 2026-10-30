@@ -14,14 +14,12 @@ Browser extension (Manifest V3) for Chrome and Microsoft Edge that shows the sta
 2. Click **Load unpacked** and select this repository's root folder (the one with `manifest.json`).
 3. Open the extension's options page and fill in the Jira URL, email, API token, board, column and statuses.
 
-Edge is Chromium-based and runs the same source folder unchanged.
+Edge is Chromium-based and runs the same source folder unchanged. Loading unpacked needs no build step.
 
 ## Release zips
 
 - `npm run zip` builds `dist/jira-status-toggle-<version>.zip` (Chrome, manifest as in the repo).
 - `npm run zip:edge` builds `dist/jira-status-toggle-edge-<version>.zip`: same files, but the manifest is generated without `minimum_chrome_version`. The source `manifest.json` is not modified.
-
-No build step is needed.
 
 ## Security note
 

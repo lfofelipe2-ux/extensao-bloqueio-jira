@@ -14,5 +14,8 @@ Document that the extension runs on Microsoft Edge (Chromium) without code chang
 - `README.md`: browser-neutral wording, `edge://extensions` install step, release zip notes.
 
 ## Verification
-- Loaded unpacked in Chromium: service worker registers and `chrome.declarativeNetRequest.updateSessionRules` exists.
+- Checked once by the author, not in CI: loaded unpacked in Chromium: service worker registers and `chrome.declarativeNetRequest.updateSessionRules` exists.
 - Manual check in Edge: icon, polling alarm (30 s minimum) and the "Voltar ao trabalho" popup window.
+
+## Known trade-off
+The Edge build has no version floor. An Edge older than Chromium 116 would install it without a check, even though the extension needs a module service worker and `declarativeNetRequestWithHostAccess`. Deliberate, per the request to drop `minimum_chrome_version` from the Edge manifest.
