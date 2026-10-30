@@ -24,6 +24,19 @@ The manifest asks for optional `https://*/*` because the Jira tenant is unknown;
 
 The token is only in the page field and in memory. Close the tab when done and remove the extension.
 
+## Verified without Jira (2026-10-30)
+
+Run against a local HTTPS echo server in Chromium 153 (new headless, extension loaded), POSTing the comment request with a dummy token. Headers the server saw:
+
+| DNR rule | Origin | User-Agent | X-Atlassian-Token | Cookie |
+|----------|--------|------------|-------------------|--------|
+| off | `chrome-extension://<id>` | browser UA | no-check | none |
+| Origin removed, UA replaced | absent | `jira-spike/0.1` | no-check | none |
+| Origin = site origin, UA kept | `https://localhost` | browser UA | no-check | none |
+| UA removed only | `chrome-extension://<id>` | absent | no-check | none |
+
+Conclusions: a plain service-worker `fetch` does send the `chrome-extension://` Origin and the browser User-Agent, so the reported failure mode is plausible. The declarativeNetRequest rule does rewrite both headers on extension-initiated requests, so the workaround is technically available. What this cannot show is whether Jira Cloud accepts or rejects either variant; that is rows 1 to 6 below.
+
 ## Results (fill in)
 
 | # | Token | DNR rule | Comment (status) | Transition (status) | XSRF error? | Notes |
