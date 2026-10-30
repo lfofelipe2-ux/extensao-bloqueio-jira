@@ -46,7 +46,7 @@ ADF: `{type:'doc',version:1,content:[paragraph...]}`, one paragraph per line (`\
 
 ## Tests
 
-`test/jira-client.test.mjs` (`node --test`) mocks `globalThis.fetch` and uses a temporary auth stub; nothing is shipped.
+`test/jira-client.test.mjs` (`node --test test/jira-client.test.mjs`) mocks `globalThis.fetch` and uses a temporary auth stub; nothing is shipped.
 
 ## Sources
 
