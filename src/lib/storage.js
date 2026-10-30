@@ -20,6 +20,7 @@ export const DEFAULT_RUNTIME = Object.freeze({
   summary: "",
   statusName: "",
   tooltip: "",
+  reason: "",
   offline: false,
 });
 

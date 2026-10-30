@@ -20,7 +20,7 @@ Give the repo a loadable Manifest V3 skeleton plus the shared storage and auth m
 ### storage.js
 Keys in `chrome.storage.local`:
 - `settings`: `{jiraUrl, email, apiToken, scopedToken, cloudId, boardId, columnId, primaryStatusId, secondaryStatusId, pollSeconds}`
-- `runtime`: `{state, issueKey, summary, statusName, tooltip, offline}`
+- `runtime`: `{state, issueKey, summary, statusName, tooltip, offline, reason}`
 
 Exports:
 - `DEFAULT_SETTINGS` (strings empty, `scopedToken: false`, `pollSeconds: 60`), `DEFAULT_RUNTIME` (`state: "unknown"`, `offline: false`, rest empty), `MIN_POLL_SECONDS = 30`.
