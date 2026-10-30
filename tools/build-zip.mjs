@@ -6,8 +6,13 @@ import { fileURLToPath } from 'node:url';
 const DOS_DATE = 0x0021;
 const root = fileURLToPath(new URL('..', import.meta.url));
 const outDir = join(root, 'dist');
-const version = JSON.parse(readFileSync(join(root, 'manifest.json'), 'utf8')).version;
-const outFile = join(outDir, `jira-status-toggle-${version}.zip`);
+const edge = process.argv.includes('--edge');
+const manifest = JSON.parse(readFileSync(join(root, 'manifest.json'), 'utf8'));
+const { version } = manifest;
+const outFile = join(outDir, `jira-status-toggle${edge ? '-edge' : ''}-${version}.zip`);
+
+if (edge) delete manifest.minimum_chrome_version;
+const manifestData = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`);
 
 function walk(dir) {
   return readdirSync(dir).sort().flatMap((name) => {
@@ -26,7 +31,7 @@ const locals = [];
 const centrals = [];
 let offset = 0;
 for (const name of files) {
-  const data = readFileSync(join(root, name));
+  const data = name === 'manifest.json' ? manifestData : readFileSync(join(root, name));
   const comp = deflateRawSync(data);
   const nameBuf = Buffer.from(name);
   const crc = crc32(data);
