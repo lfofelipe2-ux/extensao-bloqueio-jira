@@ -31,9 +31,13 @@ async function call(op) {
 
 $('perm').onclick = async () => {
   const { url, scoped } = config();
-  const origins = [`${new URL(url).origin}/*`];
-  if (scoped) origins.push(`${GATEWAY}/*`);
-  show({ granted: await chrome.permissions.request({ origins }) });
+  try {
+    const origins = [`${new URL(url).origin}/*`];
+    if (scoped) origins.push(`${GATEWAY}/*`);
+    show({ granted: await chrome.permissions.request({ origins }) });
+  } catch (e) {
+    show(`invalid Jira URL: ${e.message}`);
+  }
 };
 
 $('detect').onclick = async () => {
