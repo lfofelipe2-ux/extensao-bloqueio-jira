@@ -64,7 +64,7 @@ test('getBoardConfig maps columns and filter', async () => {
   assert.equal(calls[0].url.pathname, '/rest/agile/1.0/board/7/configuration');
 });
 
-const boardConfig = json(200, {
+const boardConfig = () => json(200, {
   filter: { id: 55 },
   columnConfig: { columns: [
     { name: 'Doing', statuses: [{ id: '3' }] },
@@ -74,7 +74,7 @@ const boardConfig = json(200, {
 const settings = { boardId: 1, columnId: 'Doing', secondaryStatusId: '8' };
 
 test('findTasks builds JQL with both columns and pages with nextPageToken', async () => {
-  queue.push(boardConfig);
+  queue.push(boardConfig());
   queue.push(json(200, { issues: [{ id: '1', key: 'A-1', fields: { summary: 's1', status: { id: '3', name: 'Doing' } } }], isLast: false, nextPageToken: 'tok' }));
   queue.push(json(200, { issues: [{ id: '2', key: 'A-2', fields: { summary: 's2', status: { id: '8', name: 'Blocked' } } }], isLast: true }));
   const tasks = await c.findTasks(settings);
@@ -87,10 +87,21 @@ test('findTasks builds JQL with both columns and pages with nextPageToken', asyn
   assert.equal(calls[2].url.searchParams.get('nextPageToken'), 'tok');
 });
 
+test('findTasks rejects a non-numeric board filter id', async () => {
+  queue.push(json(200, { filter: { id: '1 OR 1=1' }, columnConfig: { columns: [{ name: 'Doing', statuses: [{ id: '3' }] }] } }));
+  await assert.rejects(c.findTasks(settings), /filter id/);
+  assert.equal(calls.length, 1);
+});
+
+test('listBoards stops at the page cap', async () => {
+  for (let i = 0; i < 20; i++) queue.push(json(200, { values: [{ id: i }], isLast: false }));
+  assert.equal((await c.listBoards()).length, 10);
+});
+
 test('findTasks returns [] and throws on unknown column', async () => {
-  queue.push(boardConfig, json(200, { issues: [], isLast: true }));
+  queue.push(boardConfig(), json(200, { issues: [], isLast: true }));
   assert.deepEqual(await c.findTasks(settings), []);
-  queue.push(boardConfig);
+  queue.push(boardConfig());
   await assert.rejects(c.findTasks({ ...settings, columnId: 'Nope' }), /not found/);
 });
 
@@ -138,4 +149,20 @@ test('errors are classified', async () => {
 test('error never contains the auth header', async () => {
   queue.push(json(401, {}));
   await assert.rejects(c.getMyself(), (e) => !JSON.stringify({ m: e.message, s: e.stack }).includes('dGVzdA'));
+});
+
+test('200 with a non-JSON body is an error', async () => {
+  queue.push({ ok: true, status: 200, text: async () => '<html>login</html>' });
+  await assert.rejects(c.getMyself(), (e) => e.kind === 'other' && /non-JSON/.test(e.message));
+});
+
+test('body read failure is a network error', async () => {
+  queue.push({ ok: true, status: 200, text: async () => { throw new TypeError('reset'); } });
+  await assert.rejects(c.getMyself(), (e) => e.kind === 'network');
+});
+
+test('findTasks omits the filter clause when the board has none', async () => {
+  queue.push(json(200, { columnConfig: { columns: [{ name: 'Doing', statuses: [{ id: '3' }] }] } }), json(200, { issues: [], isLast: true }));
+  await c.findTasks({ boardId: 1, columnId: 'Doing', secondaryStatusId: '99' });
+  assert.equal(calls[1].url.searchParams.get('jql'), 'assignee = currentUser() AND status in (3)');
 });

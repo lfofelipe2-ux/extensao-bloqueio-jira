@@ -21,7 +21,7 @@ Thin wrapper over the Jira Cloud REST API used by the background worker and the 
 - JQL must be bounded; `assignee = currentUser()` bounds it.
 - `findTasks` reads the board config, takes the status ids of the column named `settings.columnId`, adds the ids of the column holding `settings.secondaryStatusId` when it is another column, and builds
   `filter = <board filter id> AND assignee = currentUser() AND status in (<ids>)`.
-  The board filter limits results to the board. Returns all matches as `{ key, id, summary, statusId, statusName }` so the caller can detect 0 or more than 1. Pages are followed (max 10).
+  The board filter limits results to the board. Returns all matches as `{ key, id, summary, statusId, statusName }` so the caller can detect 0 or more than 1. Pages are followed (max 10); board listing is capped at 10 pages too.
 - Throws a plain `Error` if the column is not found on the board or has no statuses.
 
 ## Transitions
@@ -38,7 +38,7 @@ ADF: `{type:'doc',version:1,content:[paragraph...]}`, one paragraph per line (`\
 - `auth`: HTTP 401 or 403.
 - `network`: `fetch` rejected.
 - `other`: everything else.
-`jiraMessages` is `errorMessages` plus the values of `errors` from the Jira body. The message prefers the first Jira message, falling back to `HTTP <status>`. Headers are never included in errors or logged.
+A 200 response with a non-JSON body (wrong URL, login page) throws `other`; a failure reading the body is `network`. `jiraMessages` is `errorMessages` plus the values of `errors` from the Jira body. The message prefers the first Jira message, falling back to `HTTP <status>`. Headers are never included in errors or logged.
 
 ## Requests
 

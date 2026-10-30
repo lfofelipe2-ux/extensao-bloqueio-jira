@@ -1,6 +1,6 @@
 import { getBaseUrl, getAuthHeaders } from './auth.js';
 
-const MAX_SEARCH_PAGES = 10;
+const MAX_PAGES = 10;
 
 export class JiraError extends Error {
   constructor({ status, message, kind, jiraMessages = [] }) {
@@ -36,13 +36,19 @@ async function request(method, path, { query, body } = {}) {
     throw new JiraError({ status: 0, kind: 'network', message: e?.message || 'Network error' });
   }
 
-  const text = await res.text();
+  let text;
+  try {
+    text = await res.text();
+  } catch (e) {
+    throw new JiraError({ status: 0, kind: 'network', message: e?.message || 'Network error' });
+  }
   let data;
+  let parseFailed = false;
   if (text) {
     try {
       data = JSON.parse(text);
     } catch {
-      data = undefined;
+      parseFailed = true;
     }
   }
 
@@ -58,6 +64,9 @@ async function request(method, path, { query, body } = {}) {
       jiraMessages,
     });
   }
+  if (parseFailed) {
+    throw new JiraError({ status: res.status, kind: 'other', message: 'Unexpected non-JSON response' });
+  }
   return data;
 }
 
@@ -68,15 +77,16 @@ export function getMyself() {
 export async function listBoards() {
   const boards = [];
   let startAt = 0;
-  for (;;) {
+  for (let i = 0; i < MAX_PAGES; i++) {
     const page = await request('GET', '/rest/agile/1.0/board', {
       query: { startAt, maxResults: 50 },
     });
     const values = page?.values || [];
     boards.push(...values);
-    if (page?.isLast !== false || values.length === 0) return boards;
+    if (page?.isLast !== false || values.length === 0) break;
     startAt += values.length;
   }
+  return boards;
 }
 
 export async function getBoardConfig(boardId) {
@@ -102,13 +112,16 @@ export async function findTasks(settings) {
   if (secondaryColumn) secondaryColumn.statusIds.forEach((id) => statusIds.add(id));
 
   const clauses = [];
-  if (config.filterId != null) clauses.push(`filter = ${config.filterId}`);
+  if (config.filterId != null) {
+    if (!/^\d+$/.test(String(config.filterId))) throw new Error('Unexpected board filter id');
+    clauses.push(`filter = ${config.filterId}`);
+  }
   clauses.push('assignee = currentUser()', `status in (${[...statusIds].join(', ')})`);
   const jql = clauses.join(' AND ');
 
   const tasks = [];
   let nextPageToken;
-  for (let page = 0; page < MAX_SEARCH_PAGES; page++) {
+  for (let page = 0; page < MAX_PAGES; page++) {
     const res = await request('GET', '/rest/api/3/search/jql', {
       query: { jql, fields: 'summary,status', maxResults: 50, nextPageToken },
     });
@@ -151,7 +164,7 @@ function toAdf(text) {
   return {
     type: 'doc',
     version: 1,
-    content: text.split(/\r?\n/).map((line) => ({
+    content: text.trimEnd().split(/\r?\n/).map((line) => ({
       type: 'paragraph',
       content: line ? [{ type: 'text', text: line }] : [],
     })),
