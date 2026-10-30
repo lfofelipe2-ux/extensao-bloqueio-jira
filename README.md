@@ -1,6 +1,6 @@
 # Jira Status Toggle
 
-Chrome extension (Manifest V3) that shows the status of your current Jira Cloud task in the toolbar icon and switches it between two statuses with one click.
+Browser extension (Manifest V3) for Chrome and Microsoft Edge that shows the status of your current Jira Cloud task in the toolbar icon and switches it between two statuses with one click.
 
 | Icon | State |
 |---|---|
@@ -10,15 +10,20 @@ Chrome extension (Manifest V3) that shows the status of your current Jira Cloud 
 
 ## Load unpacked
 
-1. Open `chrome://extensions` and enable **Developer mode**.
+1. Open `chrome://extensions` (Chrome) or `edge://extensions` (Microsoft Edge) and enable **Developer mode**.
 2. Click **Load unpacked** and select this repository's root folder (the one with `manifest.json`).
 3. Open the extension's options page and fill in the Jira URL, email, API token, board, column and statuses.
 
-No build step is needed.
+Edge is Chromium-based and runs the same source folder unchanged. Loading unpacked needs no build step.
+
+## Release zips
+
+- `npm run zip` builds `dist/jira-status-toggle-<version>.zip` (Chrome, manifest as in the repo).
+- `npm run zip:edge` builds `dist/jira-status-toggle-edge-<version>.zip`: same files, but the manifest is generated without `minimum_chrome_version`. The source `manifest.json` is not modified.
 
 ## Security note
 
-The API token is stored **unencrypted** in `chrome.storage.local`, on this machine only. Anyone with access to your Chrome profile can read it. Use a token with the shortest lifetime you can live with and revoke it at id.atlassian.com if the machine is shared or lost. The token is never logged.
+The API token is stored **unencrypted** in `chrome.storage.local`, on this machine only. Anyone with access to your browser profile can read it. Use a token with the shortest lifetime you can live with and revoke it at id.atlassian.com if the machine is shared or lost. The token is never logged.
 
 ## Development
 
