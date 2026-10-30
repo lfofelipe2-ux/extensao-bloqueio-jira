@@ -31,7 +31,7 @@ function normalizePoll(value) {
 }
 
 function defined(obj) {
-  return Object.fromEntries(Object.entries(obj ?? {}).filter(([, v]) => v !== undefined && v !== null));
+  return Object.fromEntries(Object.entries(obj !== null && typeof obj === "object" ? obj : {}).filter(([, v]) => v !== undefined && v !== null));
 }
 
 async function read(key, defaults) {

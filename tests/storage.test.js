@@ -59,3 +59,8 @@ test("null or empty pollSeconds falls back to 60", async () => {
   data.settings.pollSeconds = 1;
   assert.equal((await getSettings()).pollSeconds, 30);
 });
+
+test("non-object stored values fall back to defaults", async () => {
+  data.settings = "corrupt";
+  assert.deepEqual(await getSettings(), DEFAULT_SETTINGS);
+});
